@@ -10,7 +10,9 @@ https://github.com/user-attachments/assets/9d1a6a64-de22-4b5a-a597-685c663c9c79
 
 # Installation
 
-Add the following to your `claude_desktop_config.json`:
+`uv pip install --system mcp-vcd`
+
+And add the following to your `claude_desktop_config.json`:
 
 ```json
 "mcpServers": {
