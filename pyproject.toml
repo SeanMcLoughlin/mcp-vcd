@@ -1,0 +1,18 @@
+[project]
+name = "mcp-vcd"
+version = "0.1.0"
+description = "An MCP server for querying the state of a Value Change Dump (VCD) file"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "ipykernel>=6.29.5",
+    "mcp>=1.1.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+mcp-vcd = "mcp_vcd:main"
