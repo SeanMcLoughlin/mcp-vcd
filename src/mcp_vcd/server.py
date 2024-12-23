@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Dict, Optional
 import asyncio
 from mcp.server.models import InitializationOptions
 import mcp.types as types
@@ -16,11 +16,8 @@ async def parse_signal_mappings(file_name: str) -> Dict[str, str]:
     try:
         with open(file_name, 'r') as f:
             for line in f:
-                # Stop parsing once we're past the header section
                 if line.startswith('$enddefinitions'):
                     break
-
-                # Match lines like "$var reg 1 ! clk $end"
                 if line.startswith('$var'):
                     parts = line.split()
                     if len(parts) >= 5:
@@ -30,14 +27,34 @@ async def parse_signal_mappings(file_name: str) -> Dict[str, str]:
     except Exception as e:
         raise RuntimeError(f"Failed to parse signal mappings: {str(e)}")
 
-async def get_signal_lines(file_name: str, char: str) -> str:
-    """Get all lines containing the specified character."""
+async def get_signal_lines(file_name: str, char: str, start_time: Optional[int] = None, end_time: Optional[int] = None) -> str:
+    """Get all lines containing the specified character within the timestamp range."""
     try:
         matches = []
+        current_time = 0
         with open(file_name, 'r') as f:
             for line_num, line in enumerate(f, 1):
+                line = line.rstrip()
+
+                # Update current timestamp if we see a timestamp marker
+                if line.startswith('#'):
+                    try:
+                        current_time = int(line[1:])
+                    except ValueError:
+                        continue
+
+                # Skip if we're before start_time
+                if start_time is not None and current_time < start_time:
+                    continue
+
+                # Break if we're past end_time
+                if end_time is not None and current_time > end_time:
+                    break
+
+                # If we're in the desired time range and line contains our character
                 if char in line:
-                    matches.append(f"{line_num}:{line.rstrip()}")
+                    matches.append(f"{line_num}:{line}")
+
         return '\n'.join(matches)
     except Exception as e:
         raise RuntimeError(f"Failed to read file: {str(e)}")
@@ -63,6 +80,14 @@ async def handle_list_tools() -> list[types.Tool]:
                         "type": "string",
                         "description": "Name of the signal to search for",
                     },
+                    "start_time": {
+                        "type": "integer",
+                        "description": "Start timestamp (optional)",
+                    },
+                    "end_time": {
+                        "type": "integer",
+                        "description": "End timestamp (optional)",
+                    },
                 },
                 "required": ["file_name", "signal_name"],
             },
@@ -83,6 +108,8 @@ async def handle_call_tool(
     if name == "get-signal":
         file_name = arguments.get("file_name")
         signal_name = arguments.get("signal_name")
+        start_time = arguments.get("start_time")
+        end_time = arguments.get("end_time")
 
         if not file_name or not signal_name:
             raise ValueError("Missing required parameters")
@@ -100,8 +127,8 @@ async def handle_call_tool(
                     text=f"Signal '{signal_name}' not found in VCD file"
                 )]
 
-            # Get all lines containing this character
-            output = await get_signal_lines(file_name, signal_char)
+            # Get all lines containing this character within time range
+            output = await get_signal_lines(file_name, signal_char, start_time, end_time)
 
             return [types.TextContent(
                 type="text",
